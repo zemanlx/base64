@@ -13,6 +13,7 @@ var (
 	urlGarbage64 *regexp.Regexp = regexp.MustCompile(`[^a-zA-Z0-9\-_=\n\r]+`)
 )
 
+// Encode64 read stream from input and encode it to base64 with optional wrapping
 func Encode64(input io.Reader, output io.Writer, encoding *base64.Encoding, wrapAfter uint) error {
 	var wg sync.WaitGroup
 	errc := make(chan error, 2) // one per worker goroutine
@@ -112,6 +113,7 @@ func wrap(wrapAfter uint, input io.Reader, output io.Writer) (err error) {
 	return nil
 }
 
+// Decode64 read stream from input and decode it output with optional garbade ignoring
 func Decode64(input io.Reader, output io.Writer, encoding *base64.Encoding, ignoreGarbage bool) error {
 	var (
 		garbage          *regexp.Regexp
