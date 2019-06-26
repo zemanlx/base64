@@ -1,3 +1,7 @@
+[![Build Status](https://travis-ci.org/zemanlx/base64.svg?branch=develop)](https://travis-ci.org/zemanlx/base64)
+[![Go Report Card](https://goreportcard.com/badge/github.com/zemanlx/base64)](https://goreportcard.com/report/github.com/zemanlx/base64)
+[![GuardRails badge](https://badges.guardrails.io/zemanlx/base64.svg?token=211ba559a3ab43c3e7c227365d0c757ca0dce0b474d048fcf0366967c2ef8b7f)](https://dashboard.guardrails.io/default/gh/zemanlx/base64)
+
 # base64
 
 Backward compatible alternative of Linux `base64` plus
@@ -5,7 +9,7 @@ Backward compatible alternative of Linux `base64` plus
 -   URL encoding option
 -   No padding option (both for standard and URL encoding)
 
-```
+```man
     Usage: base64 [OPTION]... [FILE]
 
     Base64 encode or decode FILE, or standard input, to standard output.
