@@ -15,6 +15,7 @@ import (
 var (
 	version string // build time variable
 	commit  string // build time variable
+	date    string // build time variable
 )
 
 func main() {
@@ -84,6 +85,7 @@ func printVersion() {
 	w := tabwriter.NewWriter(os.Stdout, 0, 0, padding, ' ', 0)
 	fmt.Fprintf(w, "Version:\t%s\n", version)
 	fmt.Fprintf(w, "Commit:\t%s\n", commit)
+	fmt.Fprintf(w, "Date:\t%s\n", date)
 	w.Flush()
 }
 
