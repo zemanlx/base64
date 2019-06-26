@@ -7,21 +7,11 @@ VERSION := $(shell git describe --tags 2>/dev/null || echo "0.0.0")
 COMMIT := $(shell git rev-parse --short=8 HEAD)
 
 # Use linker flags to provide version/build settings to the target
-LDFLAGS=-ldflags "-X=main.version=$(VERSION) -X=main.commit=$(COMMIT) -extldflags -static -s -w"
-# LDFLAGS=-ldflags "-X=main.version=$(VERSION) -X=main.commit=$(COMMIT) -linkmode external -extldflags -static -s -w"
+LDFLAGS=-ldflags "-s -w -X=main.version=$(VERSION) -X=main.commit=$(COMMIT)"
 
 .PHONY: build
 build:
-	@env GOOS=linux   GOARCH=amd64 go build $(LDFLAGS) -o build/base64.linux.amd64
-
-.PHONY: build-all
-build-all:
-	env GOOS=windows GOARCH=amd64 go build $(LDFLAGS) -o build/base64.windows.amd64
-	env GOOS=windows GOARCH=386   go build $(LDFLAGS) -o build/base64.windows.386
-	env GOOS=linux   GOARCH=amd64 go build $(LDFLAGS) -o build/base64.linux.amd64
-	env GOOS=linux   GOARCH=386   go build $(LDFLAGS) -o build/base64.linux.386
-	env GOOS=darwin  GOARCH=amd64 go build $(LDFLAGS) -o build/base64.darwin.amd64
-	env GOOS=darwin  GOARCH=386   go build $(LDFLAGS) -o build/base64.darwin.386
+	@env GOOS=linux GOARCH=amd64 go build $(LDFLAGS) -o build/base64.linux.amd64
 
 .PHONY: clean
 clean:
