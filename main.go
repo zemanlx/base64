@@ -107,7 +107,7 @@ func getFile(fileName string) (file *os.File, err error) {
 	if fileName == "" || fileName == "-" {
 		return os.Stdin, nil
 	}
-	if file, err = os.Open(fileName); err != nil {
+	if file, err = os.Open(filepath.Clean(fileName)); err != nil {
 		return nil, fmt.Errorf("cannot open %s: %v", fileName, err)
 	}
 	return file, nil
