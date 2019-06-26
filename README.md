@@ -5,7 +5,7 @@ Backward compatible alternative of Linux `base64` plus
 -   URL encoding option
 -   No padding option (both for standard and URL encoding)
 
-
+```
     Usage: base64 [OPTION]... [FILE]
 
     Base64 encode or decode FILE, or standard input, to standard output.
@@ -24,3 +24,4 @@ Backward compatible alternative of Linux `base64` plus
     When decoding, the input may contain newlines in addition to the bytes of
     the formal base64 alphabet.  Use --ignore-garbage to attempt to recover
     from any other non-alphabet bytes in the encoded stream.
+```
