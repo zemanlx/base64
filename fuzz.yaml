@@ -1,0 +1,11 @@
+base: ubuntu:16.04
+language: go
+version: "1.12"
+checkout: github.com/zemanlx/base64
+targets:
+  - name: xbase
+    corpus: ./xbase/fuzz/corpus
+    harness:
+      function: Fuzz
+      build_tags: gofuzz
+      package: github.com/zemanlx/base64/xbase
