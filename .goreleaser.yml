@@ -4,8 +4,6 @@ before:
   hooks:
     # you may remove this if you don't use vgo
     - go mod download
-    # you may remove this if you don't need go generate
-    - go generate ./...
 builds:
 - env:
   - CGO_ENABLED=0
@@ -39,9 +37,15 @@ builds:
     - s390x
     - ppc64
 
+  # GOARM to build for when GOARCH is arm.
+  # For more info refer to: https://golang.org/doc/install/source#environment
+  # Default is only 6.
+  goarm:
+    - 5
+    - 6
+    - 7
 archives:
-- builds:
-  - default
+-
   format: binary
 checksum:
   name_template: 'checksums.txt'
@@ -53,5 +57,7 @@ changelog:
     exclude:
     - '^docs:'
     - '^test:'
+    - Merge pull request
+    - Merge branch
 release:
   draft: true
