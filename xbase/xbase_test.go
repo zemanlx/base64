@@ -352,7 +352,7 @@ func Test_Decode64(t *testing.T) {
 		{"Standard encoding with padding and with garbage and wrap after 76 - fail (no ignore)", args{"testdata/100c.decode.std.wrap-76.std-garbage.padded.input", base64.StdEncoding, false}, "testdata/100c.decode.std.wrap-76.std-garbage.padded.fail.gold", true},
 		{"Standard encoding with padding and no garbage and wrap after 137", args{"testdata/100c.decode.std.wrap-137.no-garbage.padded.input", base64.StdEncoding, false}, "testdata/100c.decode.std.wrap-137.no-garbage.padded.gold", false},
 		{"Standard encoding with padding and no garbage and wrap after 200", args{"testdata/100c.decode.std.wrap-200.no-garbage.padded.input", base64.StdEncoding, false}, "testdata/100c.decode.std.wrap-200.no-garbage.padded.gold", false},
-		{"URL encoding with padding and no wrap", args{"testdata/utf8.decode.input", base64.StdEncoding, false}, "testdata/utf8.decode.golden", false},
+		{"URL encoding with padding and no wrap", args{"testdata/utf8.decode.url.wrap-0.padded.input", base64.URLEncoding, false}, "testdata/utf8.decode.url.wrap-0.padded.golden", false},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
