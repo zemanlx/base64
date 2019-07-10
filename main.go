@@ -47,11 +47,11 @@ func main() {
 		fmt.Fprintln(os.Stderr, err.Error())
 		os.Exit(1)
 	}
-	defer file.Close()
 
 	if !*decode { // encode
 		if err = xbase.Encode64(file, os.Stdout, encoding, *wrapAfter); err != nil {
 			fmt.Fprintf(os.Stderr, "encode pipeline error: %v\n", err)
+			file.Close()
 			os.Exit(1)
 		}
 	}
@@ -59,6 +59,7 @@ func main() {
 	if *decode {
 		if err = xbase.Decode64(file, os.Stdout, encoding, *ignoreGarbage); err != nil {
 			fmt.Fprintf(os.Stderr, "encode pipeline error: %v\n", err)
+			file.Close()
 			os.Exit(1)
 		}
 	}

@@ -7,10 +7,11 @@ import (
 	"io"
 	"io/ioutil"
 	"os"
-	"reflect"
 	"regexp"
 	"strings"
 	"testing"
+
+	"github.com/google/go-cmp/cmp"
 )
 
 var update = flag.Bool("update", false, "update .golden files")
@@ -30,9 +31,9 @@ func Test_plainEncode(t *testing.T) {
 		{"simple input", args{strings.NewReader("simple"), base64.StdEncoding}, "c2ltcGxl", false},
 		{"日本 input", args{strings.NewReader("日本"), base64.StdEncoding}, "5pel5pys", false},
 		{"standard encoding alphabet (/) with padding", args{strings.NewReader("lo£"), base64.StdEncoding}, "bG/Cow==", false},
-		{"URL encoding alphabet (/)  with padding", args{strings.NewReader("lo£"), base64.URLEncoding}, "bG_Cow==", false},
+		{"URL encoding alphabet (_) with padding", args{strings.NewReader("lo£"), base64.URLEncoding}, "bG_Cow==", false},
 		{"standard encoding alphabet (/) with no padding", args{strings.NewReader("lo£"), base64.RawStdEncoding}, "bG/Cow", false},
-		{"URL encoding alphabet (/) with no padding", args{strings.NewReader("lo£"), base64.RawURLEncoding}, "bG_Cow", false},
+		{"URL encoding alphabet (_) with no padding", args{strings.NewReader("lo£"), base64.RawURLEncoding}, "bG_Cow", false},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -88,9 +89,9 @@ func Test_plainDecode(t *testing.T) {
 		{"simple output", args{strings.NewReader("c2ltcGxl"), base64.StdEncoding}, "simple", false},
 		{"日本 output", args{strings.NewReader("5pel5pys"), base64.StdEncoding}, "日本", false},
 		{"standard encoding alphabet (/) with padding", args{strings.NewReader("bG/Cow=="), base64.StdEncoding}, "lo£", false},
-		{"URL encoding alphabet (/)  with padding", args{strings.NewReader("bG_Cow=="), base64.URLEncoding}, "lo£", false},
+		{"URL encoding alphabet (_) with padding", args{strings.NewReader("bG_Cow=="), base64.URLEncoding}, "lo£", false},
 		{"standard encoding alphabet (/) with no padding", args{strings.NewReader("bG/Cow"), base64.RawStdEncoding}, "lo£", false},
-		{"URL encoding alphabet (/) with no padding", args{strings.NewReader("bG_Cow"), base64.RawURLEncoding}, "lo£", false},
+		{"URL encoding alphabet (_) with no padding", args{strings.NewReader("bG_Cow"), base64.RawURLEncoding}, "lo£", false},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -128,63 +129,6 @@ func Benchmark_plainDecode(b *testing.B) {
 		}
 		if err = plainDecode(input, output, base64.StdEncoding); err != nil {
 			b.Fatalf("plainDecode(%s, output) = %v", input.Name(), err)
-		}
-	}
-}
-
-func Test_wrap(t *testing.T) {
-	type args struct {
-		wrapAfter uint
-		input     io.Reader
-	}
-	tests := []struct {
-		name       string
-		args       args
-		wantOutput string
-		wantErr    bool
-	}{
-		{"no wrapping", args{0, strings.NewReader("1234567890")}, "1234567890", false},
-		{"wrap after 5th character", args{5, strings.NewReader("1234567890")}, "12345\n67890\n", false},
-		{"wrap after 7th character", args{7, strings.NewReader("1234567890")}, "1234567\n890\n", false},
-		{"wrap after end of file", args{20, strings.NewReader("1234567890")}, "1234567890\n", false},
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			output := &bytes.Buffer{}
-			if err := wrap(tt.args.wrapAfter, tt.args.input, output); (err != nil) != tt.wantErr {
-				t.Errorf("wrap() error = %v, wantErr %v", err, tt.wantErr)
-				return
-			}
-			if gotOutput := output.String(); gotOutput != tt.wantOutput {
-				t.Errorf("wrap() = %v, want %v", gotOutput, tt.wantOutput)
-			}
-		})
-	}
-}
-
-func Benchmark_wrap(b *testing.B) {
-	var wrapAfter uint = 76
-	testInput := "testdata/utf8.decode.input"
-	input, err := os.Open(testInput)
-	if err != nil {
-		b.Fatalf("cannot open %s: %v", testInput, err)
-	}
-	defer input.Close()
-	inputStats, err := input.Stat()
-	if err != nil {
-		b.Fatalf("cannot get stats for %s: %v", testInput, err)
-	}
-	inputStats.Size()
-
-	buf := make([]byte, inputStats.Size())
-	output := bytes.NewBuffer(buf)
-
-	for i := 0; i < b.N; i++ {
-		if _, err = input.Seek(0, io.SeekStart); err != nil {
-			b.Fatalf("cannot seek input file %s: %v", testInput, err)
-		}
-		if err = wrap(wrapAfter, input, output); err != nil {
-			b.Fatalf("wrap(%d, %s, output) = %v", wrapAfter, input.Name(), err)
 		}
 	}
 }
@@ -297,10 +241,39 @@ func Test_Encode64(t *testing.T) {
 				return
 			}
 
-			if !reflect.DeepEqual(string(gotOutput), string(wantOutput)) {
-				t.Errorf("Encode64() STDOUT = %v, want %v", string(gotOutput), string(wantOutput))
+			if diff := cmp.Diff(string(gotOutput), string(wantOutput)); diff != "" {
+				t.Errorf("Encode64() mismatch (-got +want):\n%s", diff)
 			}
 		})
+	}
+}
+
+func Benchmark_Encode64(b *testing.B) {
+	var wrapAfter uint = 76
+	testInput := "testdata/utf8.decode.input"
+	input, err := os.Open(testInput)
+	if err != nil {
+		b.Fatalf("cannot open %s: %v", testInput, err)
+	}
+	defer input.Close()
+	inputStats, err := input.Stat()
+	if err != nil {
+		b.Fatalf("cannot get stats for %s: %v", testInput, err)
+	}
+	inputStats.Size()
+
+	buf := make([]byte, inputStats.Size())
+	output := bytes.NewBuffer(buf)
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		b.StopTimer()
+		if _, err = input.Seek(0, io.SeekStart); err != nil {
+			b.Fatalf("cannot seek input file %s: %v", testInput, err)
+		}
+		b.StartTimer()
+		if err = Encode64(input, output, base64.StdEncoding, wrapAfter); err != nil {
+			b.Fatalf("Encode64(%s, output, base64.StdEncoding, %d) = %v", input.Name(), wrapAfter, err)
+		}
 	}
 }
 
@@ -322,7 +295,7 @@ func Test_Decode64(t *testing.T) {
 		{"Standard encoding with padding and with garbage and wrap after 76 - fail (no ignore)", args{"testdata/100c.decode.std.wrap-76.std-garbage.padded.input", base64.StdEncoding, false}, "testdata/100c.decode.std.wrap-76.std-garbage.padded.fail.gold", true},
 		{"Standard encoding with padding and no garbage and wrap after 137", args{"testdata/100c.decode.std.wrap-137.no-garbage.padded.input", base64.StdEncoding, false}, "testdata/100c.decode.std.wrap-137.no-garbage.padded.gold", false},
 		{"Standard encoding with padding and no garbage and wrap after 200", args{"testdata/100c.decode.std.wrap-200.no-garbage.padded.input", base64.StdEncoding, false}, "testdata/100c.decode.std.wrap-200.no-garbage.padded.gold", false},
-		{"URL encoding with padding and no wrap", args{"testdata/utf8.decode.input", base64.StdEncoding, false}, "testdata/utf8.decode.golden", false},
+		{"URL encoding with padding and no wrap", args{"testdata/utf8.decode.url.wrap-0.padded.input", base64.URLEncoding, false}, "testdata/utf8.decode.url.wrap-0.padded.golden", false},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -356,10 +329,56 @@ func Test_Decode64(t *testing.T) {
 				return
 			}
 
-			if !reflect.DeepEqual(string(gotOutput), string(wantOutput)) {
-				t.Errorf("Decode64() STDOUT = %v, want %v", string(gotOutput), string(wantOutput))
+			if diff := cmp.Diff(string(gotOutput), string(wantOutput)); diff != "" {
+				t.Errorf("Decode64() mismatch (-got +want):\n%s", diff)
+			}
+		})
+	}
+}
+
+func Test_wrapWriter_Write(t *testing.T) {
+	type fields struct {
+		leftover  int
+		wrapAfter int
+		w         io.Writer
+	}
+	type args struct {
+		p []byte
+	}
+	tests := []struct {
+		name       string
+		fields     fields
+		args       args
+		wantN      int
+		wantOutput []byte
+		wantErr    bool
+	}{
+		{"no wrap for wrapAfter == 0", fields{wrapAfter: 0, w: &bytes.Buffer{}}, args{[]byte("1234567890")}, len("1234567890"), []byte("1234567890"), false},
+		{"no wrap for wrapAfter longer than input", fields{wrapAfter: 50, w: &bytes.Buffer{}}, args{[]byte("1234567890")}, len("1234567890"), []byte("1234567890"), false},
+		{"wrap for wrapAfter smaller than input with newline at the end - wrap 5 for len 10", fields{wrapAfter: 5, w: &bytes.Buffer{}}, args{[]byte("1234567890")}, len("1234567890"), []byte("12345\n67890\n"), false},
+		{"wrap for wrapAfter smaller than input without newline at the end - wrap 7 for len 10", fields{wrapAfter: 7, w: &bytes.Buffer{}}, args{[]byte("1234567890")}, len("1234567890"), []byte("1234567\n890"), false},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			output := &bytes.Buffer{}
+			ww := &wrapWriter{
+				leftover:  tt.fields.leftover,
+				wrapAfter: tt.fields.wrapAfter,
+				w:         output,
+			}
+			gotN, err := ww.Write(tt.args.p)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("wrapWriter.Write() error = %v, wantErr %v", err, tt.wantErr)
+				return
+			}
+			if gotN != tt.wantN {
+				t.Errorf("wrapWriter.Write() = %v, want %v", gotN, tt.wantN)
 			}
 
+			gotOutput := output.Bytes()
+			if diff := cmp.Diff(string(gotOutput), string(tt.wantOutput)); diff != "" {
+				t.Errorf("wrapWriter.Write() mismatch (-got +want):\n%s", diff)
+			}
 		})
 	}
 }
