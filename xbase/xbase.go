@@ -107,19 +107,6 @@ func NewWrapWriter(w io.Writer, at int) *wrapWriter {
 	return &wrapWriter{wrapAfter: at, w: w}
 }
 
-func wrap(wrapAfter uint, input io.Reader, output io.Writer) (err error) {
-	wrapOutput := NewWrapWriter(output, int(wrapAfter))
-	if _, err = io.Copy(wrapOutput, input); err != nil {
-		return err
-	}
-
-	if err := wrapOutput.AddMissingNewline(); err != nil {
-		return err
-	}
-
-	return nil
-}
-
 // Decode64 read stream from input and decode it output with optional garbade ignoring
 func Decode64(input io.Reader, output io.Writer, encoding *base64.Encoding, ignoreGarbage bool) error {
 	var (

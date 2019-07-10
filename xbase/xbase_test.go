@@ -133,63 +133,6 @@ func Benchmark_plainDecode(b *testing.B) {
 	}
 }
 
-func Test_wrap(t *testing.T) {
-	type args struct {
-		wrapAfter uint
-		input     io.Reader
-	}
-	tests := []struct {
-		name       string
-		args       args
-		wantOutput string
-		wantErr    bool
-	}{
-		{"no wrapping", args{0, strings.NewReader("1234567890")}, "1234567890", false},
-		{"wrap after 5th character", args{5, strings.NewReader("1234567890")}, "12345\n67890\n", false},
-		{"wrap after 7th character", args{7, strings.NewReader("1234567890")}, "1234567\n890\n", false},
-		{"wrap after end of file", args{20, strings.NewReader("1234567890")}, "1234567890\n", false},
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			output := &bytes.Buffer{}
-			if err := wrap(tt.args.wrapAfter, tt.args.input, output); (err != nil) != tt.wantErr {
-				t.Errorf("wrap() error = %v, wantErr %v", err, tt.wantErr)
-				return
-			}
-			if gotOutput := output.String(); gotOutput != tt.wantOutput {
-				t.Errorf("wrap() = %v, want %v", gotOutput, tt.wantOutput)
-			}
-		})
-	}
-}
-
-func Benchmark_wrap(b *testing.B) {
-	var wrapAfter uint = 76
-	testInput := "testdata/utf8.decode.input"
-	input, err := os.Open(testInput)
-	if err != nil {
-		b.Fatalf("cannot open %s: %v", testInput, err)
-	}
-	defer input.Close()
-	inputStats, err := input.Stat()
-	if err != nil {
-		b.Fatalf("cannot get stats for %s: %v", testInput, err)
-	}
-	inputStats.Size()
-
-	buf := make([]byte, inputStats.Size())
-	output := bytes.NewBuffer(buf)
-
-	for i := 0; i < b.N; i++ {
-		if _, err = input.Seek(0, io.SeekStart); err != nil {
-			b.Fatalf("cannot seek input file %s: %v", testInput, err)
-		}
-		if err = wrap(wrapAfter, input, output); err != nil {
-			b.Fatalf("wrap(%d, %s, output) = %v", wrapAfter, input.Name(), err)
-		}
-	}
-}
-
 func Test_dropGarbage(t *testing.T) {
 	type args struct {
 		input   io.Reader
