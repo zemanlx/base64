@@ -7,10 +7,11 @@ import (
 	"io"
 	"io/ioutil"
 	"os"
-	"reflect"
 	"regexp"
 	"strings"
 	"testing"
+
+	"github.com/google/go-cmp/cmp"
 )
 
 var update = flag.Bool("update", false, "update .golden files")
@@ -297,8 +298,8 @@ func Test_Encode64(t *testing.T) {
 				return
 			}
 
-			if !reflect.DeepEqual(string(gotOutput), string(wantOutput)) {
-				t.Errorf("Encode64() STDOUT = %v, want %v", string(gotOutput), string(wantOutput))
+			if diff := cmp.Diff(string(gotOutput), string(wantOutput)); diff != "" {
+				t.Errorf("Encode64() mismatch (-got +want):\n%s", diff)
 			}
 		})
 	}
@@ -385,8 +386,8 @@ func Test_Decode64(t *testing.T) {
 				return
 			}
 
-			if !reflect.DeepEqual(string(gotOutput), string(wantOutput)) {
-				t.Errorf("Decode64() STDOUT = %v, want %v", string(gotOutput), string(wantOutput))
+			if diff := cmp.Diff(string(gotOutput), string(wantOutput)); diff != "" {
+				t.Errorf("Decode64() mismatch (-got +want):\n%s", diff)
 			}
 
 		})
