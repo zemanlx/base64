@@ -9,51 +9,24 @@ import (
 )
 
 var (
-	stdGarbage64 *regexp.Regexp = regexp.MustCompile(`[^a-zA-Z0-9\+/=\n\r]+`)
-	urlGarbage64 *regexp.Regexp = regexp.MustCompile(`[^a-zA-Z0-9\-_=\n\r]+`)
+	stdGarbage64 = regexp.MustCompile(`[^a-zA-Z0-9\+/=\n\r]+`)
+	urlGarbage64 = regexp.MustCompile(`[^a-zA-Z0-9\-_=\n\r]+`)
 )
 
 // Encode64 read stream from input and encode it to base64 with optional wrapping
 func Encode64(input io.Reader, output io.Writer, encoding *base64.Encoding, wrapAfter uint) error {
-	var wg sync.WaitGroup
-	errc := make(chan error, 2) // one per worker goroutine
-	pr, pw := io.Pipe()
 
-	wg.Add(1)
-	go func() { // encode
-		defer wg.Done()
-		defer func() {
-			if err := pw.Close(); err != nil {
-				errc <- fmt.Errorf("cannot close pipe writer: %v", err)
-			}
-		}()
-		if err := plainEncode(input, pw, encoding); err != nil {
-			errc <- fmt.Errorf("cannot encode: %v\n", err)
-		}
-	}()
+	wrapper := NewWrapWriter(output, int(wrapAfter))
 
-	wg.Add(1)
-	go func() { // wrap
-		defer wg.Done()
-		defer func() {
-			if err := pr.Close(); err != nil {
-				errc <- fmt.Errorf("cannot close pipe reader: %v", err)
-			}
-		}()
-		if err := wrap(wrapAfter, pr, output); err != nil {
-			errc <- fmt.Errorf("cannot wrap: %v\n", err)
-		}
-	}()
-
-	go func() {
-		wg.Wait()
-		close(errc)
-	}()
-
-	for err := range errc {
-		return err
+	if err := plainEncode(input, wrapper, encoding); err != nil {
+		return fmt.Errorf("cannot encode: %v", err)
 	}
 
+	// To be backward compatible with linux base64
+	// add one newline after wrapping if there isn't newline
+	if err := wrapper.AddMissingNewline(); err != nil {
+		return fmt.Errorf("cannot add missing newline: %v", err)
+	}
 	return nil
 }
 
