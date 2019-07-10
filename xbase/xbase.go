@@ -82,34 +82,68 @@ func plainEncode(input io.Reader, output io.Writer, encoding *base64.Encoding) (
 	return nil
 }
 
-func wrap(wrapAfter uint, input io.Reader, output io.Writer) (err error) {
-	if wrapAfter == 0 {
-		if _, err = io.Copy(output, input); err != nil {
-			return err
-		}
-		return nil
+type wrapWriter struct {
+	count     int
+	wrapAfter int
+	notUsed   bool
+
+	w io.Writer
+}
+
+func (ww *wrapWriter) Write(p []byte) (n int, err error) {
+	if ww.wrapAfter == 0 {
+		ww.notUsed = true
+		return ww.w.Write(p)
 	}
-	wrapSymbol := []byte("\n")
-	var written int64
-	for {
-		written, err = io.CopyN(output, input, int64(wrapAfter))
+
+	// if we have less bytes than the wrapAfter number then just write the bytes and add to the counter
+	if len(p)+ww.count < ww.wrapAfter {
+		ww.count += len(p)
+		return ww.w.Write(p)
+	}
+
+	ns := (len(p) + ww.count) / ww.wrapAfter // how many \n's we will need taking into account any partial lines previously written
+	b := make([]byte, 0, len(p)+ns)          // allocate how much we will write including the newlines
+
+	var x int
+	for i := 0; i < ns; i++ {
+		b = append(b, p[x:x+ww.wrapAfter-ww.count]...)
+		b = append(b, []byte("\n")...)
+		x = x + ww.wrapAfter - ww.count
+		ww.count = 0 // reset the counter to 0 so we only use it the first time
+	}
+	b = append(b, p[x:]...) // write any remaining bytes after the last newline was added
+	ww.count = len(p[x:])   // if we have any bytes left over then add to the counter
+	n, err = ww.w.Write(b)  // write to the underlining writer (checking for errors)
+	return n - ns, err      // return the bytes written (minus the newlines... otherwise the written bytes won't matchup with the upstream writer) and any errors
+}
+
+// AddMissingNewline write newline to internal writer if last character is not newline (ww.count != 0)
+// and wrapping is used
+func (ww *wrapWriter) AddMissingNewline() (err error) {
+	if ww.count != 0 && !ww.notUsed {
+		_, err = ww.w.Write([]byte("\n"))
 		if err != nil {
-			if err == io.EOF {
-				break
-			}
-			return err
-		}
-		if _, err = output.Write(wrapSymbol); err != nil {
 			return err
 		}
 	}
-	// To be backward compatible with linux base64
-	// add one newline after wrapping if there isn't newline from for loop
-	if written > 0 && written < int64(wrapAfter) {
-		if _, err = output.Write(wrapSymbol); err != nil {
-			return err
-		}
+	return nil
+}
+
+func NewWrapWriter(w io.Writer, at int) *wrapWriter {
+	return &wrapWriter{wrapAfter: at, w: w}
+}
+
+func wrap(wrapAfter uint, input io.Reader, output io.Writer) (err error) {
+	wrapOutput := NewWrapWriter(output, int(wrapAfter))
+	if _, err = io.Copy(wrapOutput, input); err != nil {
+		return err
 	}
+
+	if err := wrapOutput.AddMissingNewline(); err != nil {
+		return err
+	}
+
 	return nil
 }
 
