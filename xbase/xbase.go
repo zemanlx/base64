@@ -129,7 +129,7 @@ func Decode64(input io.Reader, output io.Writer, encoding *base64.Encoding, igno
 	case base64.URLEncoding, base64.RawURLEncoding:
 		garbage = urlGarbage64
 	default:
-		return fmt.Errorf("encoding is not supported\n")
+		return fmt.Errorf("encoding is not supported")
 	}
 
 	plainDecodeInput = input
@@ -144,7 +144,7 @@ func Decode64(input io.Reader, output io.Writer, encoding *base64.Encoding, igno
 				}
 			}()
 			if err := dropGarbage(garbage, input, pw); err != nil {
-				errc <- fmt.Errorf("cannot drop garbage: %v\n", err)
+				errc <- fmt.Errorf("cannot drop garbage: %v", err)
 			}
 		}()
 	}
@@ -160,7 +160,7 @@ func Decode64(input io.Reader, output io.Writer, encoding *base64.Encoding, igno
 			}
 		}()
 		if err := plainDecode(plainDecodeInput, output, encoding); err != nil {
-			errc <- fmt.Errorf("cannot decode: %v\n", err)
+			errc <- fmt.Errorf("cannot decode: %v", err)
 		}
 	}()
 
