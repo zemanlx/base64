@@ -304,6 +304,35 @@ func Test_Encode64(t *testing.T) {
 	}
 }
 
+func Benchmark_Encode64(b *testing.B) {
+	var wrapAfter uint = 76
+	testInput := "testdata/utf8.decode.input"
+	input, err := os.Open(testInput)
+	if err != nil {
+		b.Fatalf("cannot open %s: %v", testInput, err)
+	}
+	defer input.Close()
+	inputStats, err := input.Stat()
+	if err != nil {
+		b.Fatalf("cannot get stats for %s: %v", testInput, err)
+	}
+	inputStats.Size()
+
+	buf := make([]byte, inputStats.Size())
+	output := bytes.NewBuffer(buf)
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		b.StopTimer()
+		if _, err = input.Seek(0, io.SeekStart); err != nil {
+			b.Fatalf("cannot seek input file %s: %v", testInput, err)
+		}
+		b.StartTimer()
+		if err = Encode64(input, output, base64.StdEncoding, wrapAfter); err != nil {
+			b.Fatalf("Encode64(%s, output, base64.StdEncoding, %d) = %v", input.Name(), wrapAfter, err)
+		}
+	}
+}
+
 func Test_Decode64(t *testing.T) {
 	type args struct {
 		fileName      string
