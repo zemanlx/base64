@@ -30,9 +30,9 @@ func Test_plainEncode(t *testing.T) {
 		{"simple input", args{strings.NewReader("simple"), base64.StdEncoding}, "c2ltcGxl", false},
 		{"日本 input", args{strings.NewReader("日本"), base64.StdEncoding}, "5pel5pys", false},
 		{"standard encoding alphabet (/) with padding", args{strings.NewReader("lo£"), base64.StdEncoding}, "bG/Cow==", false},
-		{"URL encoding alphabet (/)  with padding", args{strings.NewReader("lo£"), base64.URLEncoding}, "bG_Cow==", false},
+		{"URL encoding alphabet (_) with padding", args{strings.NewReader("lo£"), base64.URLEncoding}, "bG_Cow==", false},
 		{"standard encoding alphabet (/) with no padding", args{strings.NewReader("lo£"), base64.RawStdEncoding}, "bG/Cow", false},
-		{"URL encoding alphabet (/) with no padding", args{strings.NewReader("lo£"), base64.RawURLEncoding}, "bG_Cow", false},
+		{"URL encoding alphabet (_) with no padding", args{strings.NewReader("lo£"), base64.RawURLEncoding}, "bG_Cow", false},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -88,9 +88,9 @@ func Test_plainDecode(t *testing.T) {
 		{"simple output", args{strings.NewReader("c2ltcGxl"), base64.StdEncoding}, "simple", false},
 		{"日本 output", args{strings.NewReader("5pel5pys"), base64.StdEncoding}, "日本", false},
 		{"standard encoding alphabet (/) with padding", args{strings.NewReader("bG/Cow=="), base64.StdEncoding}, "lo£", false},
-		{"URL encoding alphabet (/)  with padding", args{strings.NewReader("bG_Cow=="), base64.URLEncoding}, "lo£", false},
+		{"URL encoding alphabet (_) with padding", args{strings.NewReader("bG_Cow=="), base64.URLEncoding}, "lo£", false},
 		{"standard encoding alphabet (/) with no padding", args{strings.NewReader("bG/Cow"), base64.RawStdEncoding}, "lo£", false},
-		{"URL encoding alphabet (/) with no padding", args{strings.NewReader("bG_Cow"), base64.RawURLEncoding}, "lo£", false},
+		{"URL encoding alphabet (_) with no padding", args{strings.NewReader("bG_Cow"), base64.RawURLEncoding}, "lo£", false},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
