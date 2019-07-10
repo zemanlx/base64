@@ -336,6 +336,35 @@ func Test_Decode64(t *testing.T) {
 	}
 }
 
+func Benchmark_Decode64(b *testing.B) {
+	ignoreGarbage := true
+	testInput := "testdata/utf8.decode.url.wrap-0.padded.input"
+	input, err := os.Open(testInput)
+	if err != nil {
+		b.Fatalf("cannot open %s: %v", testInput, err)
+	}
+	defer input.Close()
+	inputStats, err := input.Stat()
+	if err != nil {
+		b.Fatalf("cannot get stats for %s: %v", testInput, err)
+	}
+	inputStats.Size()
+
+	buf := make([]byte, inputStats.Size())
+	output := bytes.NewBuffer(buf)
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		b.StopTimer()
+		if _, err = input.Seek(0, io.SeekStart); err != nil {
+			b.Fatalf("cannot seek input file %s: %v", testInput, err)
+		}
+		b.StartTimer()
+		if err = Decode64(input, output, base64.URLEncoding, ignoreGarbage); err != nil {
+			b.Fatalf("Decode64(%s, output, base64.URLEncoding, %v) = %v", input.Name(), ignoreGarbage, err)
+		}
+	}
+}
+
 func Test_wrapWriter_Write(t *testing.T) {
 	type fields struct {
 		leftover  int
