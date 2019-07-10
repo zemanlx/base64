@@ -338,9 +338,8 @@ func Test_Decode64(t *testing.T) {
 
 func Test_wrapWriter_Write(t *testing.T) {
 	type fields struct {
-		count     int
+		leftover  int
 		wrapAfter int
-		notUsed   bool
 		w         io.Writer
 	}
 	type args struct {
@@ -363,9 +362,8 @@ func Test_wrapWriter_Write(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			output := &bytes.Buffer{}
 			ww := &wrapWriter{
-				count:     tt.fields.count,
+				leftover:  tt.fields.leftover,
 				wrapAfter: tt.fields.wrapAfter,
-				notUsed:   tt.fields.notUsed,
 				w:         output,
 			}
 			gotN, err := ww.Write(tt.args.p)

@@ -56,45 +56,46 @@ func plainEncode(input io.Reader, output io.Writer, encoding *base64.Encoding) (
 }
 
 type wrapWriter struct {
-	count     int
+	leftover  int
 	wrapAfter int
-	notUsed   bool
 
 	w io.Writer
 }
 
 func (ww *wrapWriter) Write(p []byte) (n int, err error) {
 	if ww.wrapAfter == 0 {
-		ww.notUsed = true
 		return ww.w.Write(p)
 	}
 
-	// if we have less bytes than the wrapAfter number then just write the bytes and add to the counter
-	if len(p)+ww.count < ww.wrapAfter {
-		ww.count += len(p)
+	// if we have less bytes than the wrapAfter number then just write the bytes and incease leftover
+	if len(p)+ww.leftover < ww.wrapAfter {
+		ww.leftover += len(p)
 		return ww.w.Write(p)
 	}
 
-	ns := (len(p) + ww.count) / ww.wrapAfter // how many \n's we will need taking into account any partial lines previously written
-	b := make([]byte, 0, len(p)+ns)          // allocate how much we will write including the newlines
+	ns := (len(p) + ww.leftover) / ww.wrapAfter // how many \n's will be needed
+	b := make([]byte, 0, len(p)+ns)             // how much will be written including the newlines
 
 	var x int
 	for i := 0; i < ns; i++ {
-		b = append(b, p[x:x+ww.wrapAfter-ww.count]...)
+		b = append(b, p[x:x+ww.wrapAfter-ww.leftover]...)
 		b = append(b, []byte("\n")...)
-		x = x + ww.wrapAfter - ww.count
-		ww.count = 0 // reset the counter to 0 so we only use it the first time
+		x = x + ww.wrapAfter - ww.leftover
+		ww.leftover = 0
 	}
-	b = append(b, p[x:]...) // write any remaining bytes after the last newline was added
-	ww.count = len(p[x:])   // if we have any bytes left over then add to the counter
-	n, err = ww.w.Write(b)  // write to the underlining writer (checking for errors)
-	return n - ns, err      // return the bytes written (minus the newlines... otherwise the written bytes won't matchup with the upstream writer) and any errors
+	if len(p[x:]) > 0 {
+		b = append(b, p[x:]...) // write any remaining bytes after the last newline was added
+		ww.leftover = len(p[x:])
+	}
+
+	n, err = ww.w.Write(b)
+	n -= ns // the bytes written minus the newlines to match len(p) if everying was OK
+	return n, err
 }
 
-// AddMissingNewline write newline to internal writer if last character is not newline (ww.count != 0)
-// and wrapping is used
+// AddMissingNewline write newline to internal writer
 func (ww *wrapWriter) AddMissingNewline() (err error) {
-	if ww.count != 0 && !ww.notUsed {
+	if ww.leftover != 0 && ww.wrapAfter != 0 {
 		_, err = ww.w.Write([]byte("\n"))
 		if err != nil {
 			return err
