@@ -389,7 +389,55 @@ func Test_Decode64(t *testing.T) {
 			if diff := cmp.Diff(string(gotOutput), string(wantOutput)); diff != "" {
 				t.Errorf("Decode64() mismatch (-got +want):\n%s", diff)
 			}
+		})
+	}
+}
 
+func Test_wrapWriter_Write(t *testing.T) {
+	type fields struct {
+		count     int
+		wrapAfter int
+		notUsed   bool
+		w         io.Writer
+	}
+	type args struct {
+		p []byte
+	}
+	tests := []struct {
+		name       string
+		fields     fields
+		args       args
+		wantN      int
+		wantOutput []byte
+		wantErr    bool
+	}{
+		{"no wrap for wrapAfter == 0", fields{wrapAfter: 0, w: &bytes.Buffer{}}, args{[]byte("1234567890")}, len("1234567890"), []byte("1234567890"), false},
+		{"no wrap for wrapAfter longer than input", fields{wrapAfter: 50, w: &bytes.Buffer{}}, args{[]byte("1234567890")}, len("1234567890"), []byte("1234567890"), false},
+		{"wrap for wrapAfter smaller than input with newline at the end - wrap 5 for len 10", fields{wrapAfter: 5, w: &bytes.Buffer{}}, args{[]byte("1234567890")}, len("1234567890"), []byte("12345\n67890\n"), false},
+		{"wrap for wrapAfter smaller than input without newline at the end - wrap 7 for len 10", fields{wrapAfter: 7, w: &bytes.Buffer{}}, args{[]byte("1234567890")}, len("1234567890"), []byte("1234567\n890"), false},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			output := &bytes.Buffer{}
+			ww := &wrapWriter{
+				count:     tt.fields.count,
+				wrapAfter: tt.fields.wrapAfter,
+				notUsed:   tt.fields.notUsed,
+				w:         output,
+			}
+			gotN, err := ww.Write(tt.args.p)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("wrapWriter.Write() error = %v, wantErr %v", err, tt.wantErr)
+				return
+			}
+			if gotN != tt.wantN {
+				t.Errorf("wrapWriter.Write() = %v, want %v", gotN, tt.wantN)
+			}
+
+			gotOutput := output.Bytes()
+			if diff := cmp.Diff(string(gotOutput), string(tt.wantOutput)); diff != "" {
+				t.Errorf("wrapWriter.Write() mismatch (-got +want):\n%s", diff)
+			}
 		})
 	}
 }
