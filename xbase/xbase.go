@@ -16,7 +16,7 @@ var (
 // Encode64 read stream from input and encode it to base64 with optional wrapping
 func Encode64(input io.Reader, output io.Writer, encoding *base64.Encoding, wrapAfter uint) error {
 
-	wrapper := NewWrapWriter(output, int(wrapAfter))
+	wrapper := &wrapWriter{wrapAfter: int(wrapAfter), w: output}
 
 	if err := plainEncode(input, wrapper, encoding); err != nil {
 		return fmt.Errorf("cannot encode: %v", err)
@@ -102,10 +102,6 @@ func (ww *wrapWriter) AddMissingNewline() (err error) {
 		}
 	}
 	return nil
-}
-
-func NewWrapWriter(w io.Writer, at int) *wrapWriter {
-	return &wrapWriter{wrapAfter: at, w: w}
 }
 
 // Decode64 read stream from input and decode it output with optional garbade ignoring
