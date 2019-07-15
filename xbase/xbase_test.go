@@ -7,7 +7,6 @@ import (
 	"io"
 	"io/ioutil"
 	"os"
-	"regexp"
 	"strings"
 	"testing"
 
@@ -133,60 +132,6 @@ func Benchmark_plainDecode(b *testing.B) {
 	}
 }
 
-func Test_dropGarbage(t *testing.T) {
-	type args struct {
-		input   io.Reader
-		garbage *regexp.Regexp
-	}
-	tests := []struct {
-		name       string
-		args       args
-		wantOutput string
-		wantErr    bool
-	}{
-		{"no garbage to drop", args{strings.NewReader("c2ltcGxl"), stdGarbage64}, "c2ltcGxl", false},
-		{"no garbage, keep newlines", args{strings.NewReader("c2lt\ncGxl\n"), stdGarbage64}, "c2lt\ncGxl\n", false},
-		{"no garbage, keep carriage returns with newlines", args{strings.NewReader("c2lt\r\ncGxl\r\n"), stdGarbage64}, "c2lt\r\ncGxl\r\n", false},
-		{"drop garbage for standard alphabet", args{strings.NewReader(`n_o-+£g$a%r^b&a*g(e)`), stdGarbage64}, "no+garbage", false},
-		{"drop garbage for URL alphabet", args{strings.NewReader(`n/o-+£g$a%r^b&a*g(e)`), urlGarbage64}, "no-garbage", false},
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			output := &bytes.Buffer{}
-			if err := dropGarbage(tt.args.garbage, tt.args.input, output); (err != nil) != tt.wantErr {
-				t.Errorf("dropGarbage() error = %v, wantErr %v", err, tt.wantErr)
-				return
-			}
-			if gotOutput := output.String(); gotOutput != tt.wantOutput {
-				t.Errorf("dropGarbage() = %v, want %v", gotOutput, tt.wantOutput)
-			}
-		})
-	}
-}
-
-func Benchmark_dropGarbage(b *testing.B) {
-	testInput := "testdata/utf8.decode.input"
-	input, err := os.Open(testInput)
-	if err != nil {
-		b.Fatalf("cannot open %s: %v", testInput, err)
-	}
-	defer input.Close()
-	output, err := ioutil.TempFile("", "output")
-	if err != nil {
-		b.Fatalf("cannot create tempfile %s: %v", testInput, err)
-	}
-	defer os.Remove(output.Name())
-
-	for i := 0; i < b.N; i++ {
-		if _, err = input.Seek(0, io.SeekStart); err != nil {
-			b.Fatalf("cannot seek input file %s: %v", testInput, err)
-		}
-		if err = dropGarbage(stdGarbage64, input, output); err != nil {
-			b.Fatalf("dropGarbage(%s, %s) = %v", input.Name(), output.Name(), err)
-		}
-	}
-}
-
 func Test_Encode64(t *testing.T) {
 	type args struct {
 		fileName  string
@@ -248,7 +193,36 @@ func Test_Encode64(t *testing.T) {
 	}
 }
 
-func Benchmark_Encode64(b *testing.B) {
+func Benchmark_Encode64_noWrap(b *testing.B) {
+	var wrapAfter uint
+	testInput := "testdata/utf8.decode.input"
+	input, err := os.Open(testInput)
+	if err != nil {
+		b.Fatalf("cannot open %s: %v", testInput, err)
+	}
+	defer input.Close()
+	inputStats, err := input.Stat()
+	if err != nil {
+		b.Fatalf("cannot get stats for %s: %v", testInput, err)
+	}
+	inputStats.Size()
+
+	buf := make([]byte, inputStats.Size())
+	output := bytes.NewBuffer(buf)
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		b.StopTimer()
+		if _, err = input.Seek(0, io.SeekStart); err != nil {
+			b.Fatalf("cannot seek input file %s: %v", testInput, err)
+		}
+		b.StartTimer()
+		if err = Encode64(input, output, base64.StdEncoding, wrapAfter); err != nil {
+			b.Fatalf("Encode64(%s, output, base64.StdEncoding, %d) = %v", input.Name(), wrapAfter, err)
+		}
+	}
+}
+
+func Benchmark_Encode64_wrap76(b *testing.B) {
 	var wrapAfter uint = 76
 	testInput := "testdata/utf8.decode.input"
 	input, err := os.Open(testInput)
@@ -336,7 +310,36 @@ func Test_Decode64(t *testing.T) {
 	}
 }
 
-func Benchmark_Decode64(b *testing.B) {
+func Benchmark_Decode64_noIgnoreGarbage(b *testing.B) {
+	ignoreGarbage := true
+	testInput := "testdata/utf8.decode.url.wrap-0.padded.input"
+	input, err := os.Open(testInput)
+	if err != nil {
+		b.Fatalf("cannot open %s: %v", testInput, err)
+	}
+	defer input.Close()
+	inputStats, err := input.Stat()
+	if err != nil {
+		b.Fatalf("cannot get stats for %s: %v", testInput, err)
+	}
+	inputStats.Size()
+
+	buf := make([]byte, inputStats.Size())
+	output := bytes.NewBuffer(buf)
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		b.StopTimer()
+		if _, err = input.Seek(0, io.SeekStart); err != nil {
+			b.Fatalf("cannot seek input file %s: %v", testInput, err)
+		}
+		b.StartTimer()
+		if err = Decode64(input, output, base64.URLEncoding, ignoreGarbage); err != nil {
+			b.Fatalf("Decode64(%s, output, base64.URLEncoding, %v) = %v", input.Name(), ignoreGarbage, err)
+		}
+	}
+}
+
+func Benchmark_Decode64_ignoreGarbage(b *testing.B) {
 	ignoreGarbage := true
 	testInput := "testdata/utf8.decode.url.wrap-0.padded.input"
 	input, err := os.Open(testInput)
@@ -403,10 +406,53 @@ func Test_wrapWriter_Write(t *testing.T) {
 			if gotN != tt.wantN {
 				t.Errorf("wrapWriter.Write() = %v, want %v", gotN, tt.wantN)
 			}
-
 			gotOutput := output.Bytes()
 			if diff := cmp.Diff(string(gotOutput), string(tt.wantOutput)); diff != "" {
 				t.Errorf("wrapWriter.Write() mismatch (-got +want):\n%s", diff)
+			}
+		})
+	}
+}
+
+func Test_garboReader_Read(t *testing.T) {
+	type fields struct {
+		alphabet      alphabet
+		ignoreGarbage bool
+	}
+	tests := []struct {
+		name          string
+		fields        fields
+		input         string
+		wantP         string
+		wantErrNotEOF bool
+	}{
+		{"no garbage to drop", fields{alphabet: base64std, ignoreGarbage: false}, "c2ltcGxl", "c2ltcGxl", false},
+		{"no garbage to drop with ignore garbage", fields{alphabet: base64std, ignoreGarbage: true}, "c2ltcGxl", "c2ltcGxl", false},
+		{"no garbage, drop newlines", fields{alphabet: base64std, ignoreGarbage: true}, "c2lt\ncGxl\n", "c2ltcGxl", false},
+		{"no garbage, drop carriage returns with newlines", fields{alphabet: base64std, ignoreGarbage: true}, "c2lt\r\ncGxl\r\n", "c2ltcGxl", false},
+		{"drop garbage for standard alphabet", fields{alphabet: base64std, ignoreGarbage: true}, `n_o-+£g$a%r^b&a*g(e)`, "no+garbage", false},
+		{"drop garbage for URL alphabet", fields{alphabet: base64url, ignoreGarbage: true}, `n/o-+£g$a%r^b&a*g(e)`, "no-garbage", false},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			gr := &garboReader{
+				alphabet:      tt.fields.alphabet,
+				ignoreGarbage: tt.fields.ignoreGarbage,
+				r:             bytes.NewBufferString(tt.input),
+			}
+			p := make([]byte, len(tt.input))
+			wantN := len(tt.wantP)
+			gotN, err := gr.Read(p)
+			if (err != nil) != tt.wantErrNotEOF && err != io.EOF {
+				t.Errorf("garboReader.Read() error = %v, wantErrNotEOF %v", err, tt.wantErrNotEOF)
+				return
+			}
+			if gotN != wantN {
+				t.Errorf("garboReader.Read() = %v, want %v", gotN, wantN)
+			}
+			gotOutput := p[:gotN]
+			if diff := cmp.Diff(string(gotOutput), tt.wantP); diff != "" {
+				t.Errorf("garboReader.Read() mismatch (-got +want):\n%s", diff)
 			}
 		})
 	}
