@@ -11,7 +11,7 @@ LDFLAGS=-ldflags "-s -w -X=main.version=$(VERSION) -X=main.commit=$(COMMIT)"
 
 .PHONY: build
 build:
-	@env GOOS=linux GOARCH=amd64 go build $(LDFLAGS) -o build/base64.linux.amd64
+	@env GOOS=linux GOARCH=amd64 go build $(LDFLAGS) -o build/base64
 
 .PHONY: clean
 clean:
