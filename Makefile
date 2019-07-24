@@ -33,10 +33,31 @@ simplify:
 test:
 	@go test -race -coverprofile=coverage.txt -covermode=atomic ./...
 
+.PHONY: go-fuzz
+go-fuzz:
+	@if ! which go-fuzz &>/dev/null; then \
+		go get github.com/dvyukov/go-fuzz/go-fuzz \
+		&& go mod tidy \
+		; \
+	fi
+	@if ! which go-fuzz-build &>/dev/null; then \
+		go get github.com/dvyukov/go-fuzz/go-fuzz-build \
+		&& go mod tidy \
+		; \
+	fi
+
 .PHONY: fuzz-xbase
-fuzz-xbase:
-	@go-fuzz -bin=xbase/xbase-fuzz.zip -workdir=xbase/fuzz
+fuzz-xbase: go-fuzz
 	@(cd xbase && go-fuzz-build github.com/zemanlx/base64/xbase)
+	@go-fuzz -bin=xbase/xbase-fuzz.zip -workdir=xbase/fuzz
+
+.PHONY: test-fuzzing
+test-fuzzing:
+	@wget https://app.fuzzbuzz.io/releases/cli/latest/linux/fuzzbuzz
+	@chmod a+x fuzzbuzz
+	./fuzzbuzz validate
+	./fuzzbuzz target build xbase
+	rm ./fuzzbuzz
 
 .PHONY: integration-test
 integration-test: build

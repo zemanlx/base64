@@ -1,6 +1,9 @@
 # .travis.yml
 language: go
 
+services:
+  - docker
+
 go:
   - 1.12.x
 
@@ -10,6 +13,8 @@ env:
 script:
   - make test
   - make integration-test
+  # teste that it is possible to compile fuzzer function
+  - make test-fuzzing
 
 # calls goreleaser
 deploy:

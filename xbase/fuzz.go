@@ -5,21 +5,9 @@ package xbase
 import (
 	"bytes"
 	"encoding/base64"
-	"fmt"
-	"strings"
 )
 
 func Fuzz(data []byte) int {
-	// DropGarbage tests
-	outDropGarbageStd := &bytes.Buffer{}
-	if err := dropGarbage(stdGarbage64, strings.NewReader(fmt.Sprintf("%q", data)), outDropGarbageStd); err != nil {
-		panic(err)
-	}
-	outDropGarbageURL := &bytes.Buffer{}
-	if err := dropGarbage(urlGarbage64, strings.NewReader(fmt.Sprintf("%q", data)), outDropGarbageURL); err != nil {
-		panic(err)
-	}
-
 	// Standard encoding, padded, 0 wrap
 	outEncStd0 := &bytes.Buffer{}
 	if err := Encode64(bytes.NewReader(data), outEncStd0, base64.StdEncoding, 0); err != nil {
