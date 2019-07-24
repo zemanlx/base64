@@ -43,16 +43,21 @@ go-fuzz:
 	@if ! which go-fuzz-build &>/dev/null; then \
 		go get github.com/dvyukov/go-fuzz/go-fuzz-build \
 		&& go mod tidy \
-	; \
+		; \
 	fi
 
-.PHONY: test-fuzzing
-test-fuzzing: go-fuzz
-	@(cd xbase && go-fuzz-build github.com/zemanlx/base64/xbase)
-
 .PHONY: fuzz-xbase
-fuzz-xbase: test-fuzzing
+fuzz-xbase: go-fuzz
+	@(cd xbase && go-fuzz-build github.com/zemanlx/base64/xbase)
 	@go-fuzz -bin=xbase/xbase-fuzz.zip -workdir=xbase/fuzz
+
+.PHONY: test-fuzzing
+test-fuzzing:
+	@wget https://app.fuzzbuzz.io/releases/cli/latest/linux/fuzzbuzz
+	@chmod a+x fuzzbuzz
+	@mv fuzzbuzz ~/.local/bin/
+	fuzzbuzz validate
+	fuzzbuzz target build xbase
 
 .PHONY: integration-test
 integration-test: build
