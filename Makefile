@@ -40,6 +40,11 @@ go-fuzz:
 		&& go mod tidy \
 		; \
 	fi
+	@if ! which go-fuzz-build &>/dev/null; then \
+		go get github.com/dvyukov/go-fuzz/go-fuzz-build \
+		&& go mod tidy \
+	; \
+	fi
 
 .PHONY: test-fuzzing
 test-fuzzing: go-fuzz
