@@ -33,10 +33,21 @@ simplify:
 test:
 	@go test -race -coverprofile=coverage.txt -covermode=atomic ./...
 
-.PHONY: fuzz-xbase
-fuzz-xbase:
-	@go-fuzz -bin=xbase/xbase-fuzz.zip -workdir=xbase/fuzz
+.PHONY: go-fuzz
+go-fuzz:
+	@if ! which go-fuzz &>/dev/null; then \
+		go get github.com/dvyukov/go-fuzz/go-fuzz \
+		&& go mod tidy \
+		; \
+	fi
+
+.PHONY: test-fuzzing
+test-fuzzing: go-fuzz
 	@(cd xbase && go-fuzz-build github.com/zemanlx/base64/xbase)
+
+.PHONY: fuzz-xbase
+fuzz-xbase: test-fuzzing
+	@go-fuzz -bin=xbase/xbase-fuzz.zip -workdir=xbase/fuzz
 
 .PHONY: integration-test
 integration-test: build
