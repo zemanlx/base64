@@ -55,9 +55,9 @@ fuzz-xbase: go-fuzz
 test-fuzzing:
 	@wget https://app.fuzzbuzz.io/releases/cli/latest/linux/fuzzbuzz
 	@chmod a+x fuzzbuzz
-	@mv fuzzbuzz ~/.local/bin/
-	fuzzbuzz validate
-	fuzzbuzz target build xbase
+	./fuzzbuzz validate
+	./fuzzbuzz target build xbase
+	rm ./fuzzbuzz
 
 .PHONY: integration-test
 integration-test: build
