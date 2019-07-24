@@ -4,56 +4,22 @@ import (
 	"encoding/base64"
 	"fmt"
 	"io"
-	"regexp"
-	"sync"
-)
-
-var (
-	stdGarbage64 *regexp.Regexp = regexp.MustCompile(`[^a-zA-Z0-9\+/=\n\r]+`)
-	urlGarbage64 *regexp.Regexp = regexp.MustCompile(`[^a-zA-Z0-9\-_=\n\r]+`)
 )
 
 // Encode64 read stream from input and encode it to base64 with optional wrapping
 func Encode64(input io.Reader, output io.Writer, encoding *base64.Encoding, wrapAfter uint) error {
-	var wg sync.WaitGroup
-	errc := make(chan error, 2) // one per worker goroutine
-	pr, pw := io.Pipe()
 
-	wg.Add(1)
-	go func() { // encode
-		defer wg.Done()
-		defer func() {
-			if err := pw.Close(); err != nil {
-				errc <- fmt.Errorf("cannot close pipe writer: %v", err)
-			}
-		}()
-		if err := plainEncode(input, pw, encoding); err != nil {
-			errc <- fmt.Errorf("cannot encode: %v\n", err)
-		}
-	}()
+	wrapper := &wrapWriter{wrapAfter: int(wrapAfter), w: output}
 
-	wg.Add(1)
-	go func() { // wrap
-		defer wg.Done()
-		defer func() {
-			if err := pr.Close(); err != nil {
-				errc <- fmt.Errorf("cannot close pipe reader: %v", err)
-			}
-		}()
-		if err := wrap(wrapAfter, pr, output); err != nil {
-			errc <- fmt.Errorf("cannot wrap: %v\n", err)
-		}
-	}()
-
-	go func() {
-		wg.Wait()
-		close(errc)
-	}()
-
-	for err := range errc {
-		return err
+	if err := plainEncode(input, wrapper, encoding); err != nil {
+		return fmt.Errorf("cannot encode: %v", err)
 	}
 
+	// To be backward compatible with linux base64
+	// add one newline after wrapping if there isn't newline
+	if err := wrapper.AddMissingNewline(); err != nil {
+		return fmt.Errorf("cannot add missing newline: %v", err)
+	}
 	return nil
 }
 
@@ -82,31 +48,49 @@ func plainEncode(input io.Reader, output io.Writer, encoding *base64.Encoding) (
 	return nil
 }
 
-func wrap(wrapAfter uint, input io.Reader, output io.Writer) (err error) {
-	if wrapAfter == 0 {
-		if _, err = io.Copy(output, input); err != nil {
-			return err
-		}
-		return nil
+type wrapWriter struct {
+	leftover  int
+	wrapAfter int
+
+	w io.Writer
+}
+
+func (ww *wrapWriter) Write(p []byte) (n int, err error) {
+	if ww.wrapAfter == 0 {
+		return ww.w.Write(p)
 	}
-	wrapSymbol := []byte("\n")
-	var written int64
-	for {
-		written, err = io.CopyN(output, input, int64(wrapAfter))
+
+	// if we have less bytes than the wrapAfter number then just write the bytes and incease leftover
+	if len(p)+ww.leftover < ww.wrapAfter {
+		ww.leftover += len(p)
+		return ww.w.Write(p)
+	}
+
+	ns := (len(p) + ww.leftover) / ww.wrapAfter // how many \n's will be needed
+	b := make([]byte, 0, len(p)+ns)             // how much will be written including the newlines
+
+	var x int
+	for i := 0; i < ns; i++ {
+		b = append(b, p[x:x+ww.wrapAfter-ww.leftover]...)
+		b = append(b, []byte("\n")...)
+		x = x + ww.wrapAfter - ww.leftover
+		ww.leftover = 0
+	}
+	if len(p[x:]) > 0 {
+		b = append(b, p[x:]...) // write any remaining bytes after the last newline was added
+		ww.leftover = len(p[x:])
+	}
+
+	n, err = ww.w.Write(b)
+	n -= ns // the bytes written minus the newlines to match len(p) if everying was OK
+	return n, err
+}
+
+// AddMissingNewline write newline to internal writer
+func (ww *wrapWriter) AddMissingNewline() (err error) {
+	if ww.leftover != 0 && ww.wrapAfter != 0 {
+		_, err = ww.w.Write([]byte("\n"))
 		if err != nil {
-			if err == io.EOF {
-				break
-			}
-			return err
-		}
-		if _, err = output.Write(wrapSymbol); err != nil {
-			return err
-		}
-	}
-	// To be backward compatible with linux base64
-	// add one newline after wrapping if there isn't newline from for loop
-	if written > 0 && written < int64(wrapAfter) {
-		if _, err = output.Write(wrapSymbol); err != nil {
 			return err
 		}
 	}
@@ -116,80 +100,53 @@ func wrap(wrapAfter uint, input io.Reader, output io.Writer) (err error) {
 // Decode64 read stream from input and decode it output with optional garbade ignoring
 func Decode64(input io.Reader, output io.Writer, encoding *base64.Encoding, ignoreGarbage bool) error {
 	var (
-		garbage          *regexp.Regexp
-		plainDecodeInput io.Reader
-		wg               sync.WaitGroup
+		alphabet alphabet
 	)
-	errc := make(chan error, 2) // one per worker goroutine
-	pr, pw := io.Pipe()
 
 	switch encoding {
 	case base64.StdEncoding, base64.RawStdEncoding:
-		garbage = stdGarbage64
+		alphabet = base64std
 	case base64.URLEncoding, base64.RawURLEncoding:
-		garbage = urlGarbage64
+		alphabet = base64url
 	default:
-		return fmt.Errorf("encoding is not supported\n")
+		return fmt.Errorf("encoding is not supported")
 	}
 
-	plainDecodeInput = input
-	if ignoreGarbage {
-		plainDecodeInput = pr
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
-			defer func() {
-				if err := pw.Close(); err != nil {
-					errc <- fmt.Errorf("cannot close pipe writer: %v", err)
-				}
-			}()
-			if err := dropGarbage(garbage, input, pw); err != nil {
-				errc <- fmt.Errorf("cannot drop garbage: %v\n", err)
-			}
-		}()
+	sweeper := &garboReader{alphabet: alphabet, ignoreGarbage: ignoreGarbage, r: input}
+
+	if err := plainDecode(sweeper, output, encoding); err != nil {
+		return fmt.Errorf("cannot decode: %v", err)
 	}
 
-	wg.Add(1)
-	go func() {
-		defer wg.Done()
-		defer func() {
-			if pr, ok := plainDecodeInput.(*io.PipeReader); ok {
-				if err := pr.Close(); err != nil {
-					errc <- fmt.Errorf("cannot close pipe reader: %v", err)
-				}
-			}
-		}()
-		if err := plainDecode(plainDecodeInput, output, encoding); err != nil {
-			errc <- fmt.Errorf("cannot decode: %v\n", err)
-		}
-	}()
-
-	go func() {
-		wg.Wait()
-		close(errc)
-	}()
-
-	for err := range errc {
-		return err
-	}
 	return nil
 }
 
-func dropGarbage(garbage *regexp.Regexp, input io.Reader, output io.Writer) (err error) {
-	buffer := make([]byte, 32*1024)
-	for {
-		n, err := input.Read(buffer)
-		if err != nil {
-			if err == io.EOF {
-				break
-			}
-			return fmt.Errorf("cannot read from input: %v", err)
-		}
-		if _, err = output.Write(garbage.ReplaceAllLiteral(buffer[:n], []byte{})); err != nil {
-			return err
+type garboReader struct {
+	alphabet      alphabet
+	ignoreGarbage bool
+	n             int
+
+	r io.Reader
+}
+
+func (gr *garboReader) Read(p []byte) (n int, err error) {
+	n, err = gr.r.Read(p)
+	if err != nil && n == 0 {
+		return n, err
+	}
+	if !gr.ignoreGarbage {
+		return n, err
+	}
+
+	gr.n = 0
+	for _, char := range p[:n] {
+		if gr.alphabet[char] {
+			p[gr.n] = char
+			gr.n++
 		}
 	}
-	return nil
+	copy(p, p[:gr.n])
+	return gr.n, err // may contain io.EOF
 }
 
 func plainDecode(input io.Reader, output io.Writer, encoding *base64.Encoding) (err error) {

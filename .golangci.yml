@@ -71,7 +71,7 @@ linters-settings:
     # ignore: fmt:.*,io/ioutil:^Read.*
     # path to a file containing a list of functions to exclude from checking
     # see https://github.com/kisielk/errcheck#excluding-functions for details
-    exclude: .errcheck_excludes.txt
+    # exclude: .errcheck_excludes.txt
   govet:
     # report about shadowed variables
     check-shadowing: false
@@ -100,9 +100,9 @@ linters-settings:
   maligned:
     # print struct with more effective memory layout or not, false by default
     suggest-new: true
-  dupl:
-    # tokens count to trigger issue, 150 by default
-    threshold: 100
+  # dupl:
+  #   # tokens count to trigger issue, 150 by default
+  #   threshold: 150
   goconst:
     # minimal length of string constant, 3 by default
     min-len: 3
@@ -155,8 +155,74 @@ linters-settings:
     # See https://go-critic.github.io/overview#checks-overview
     # To check which checks are enabled run `GL_DEBUG=gocritic golangci-lint run`
     # By default list of stable checks is used.
-    # enabled-checks:
-    #   - rangeValCopy
+    enabled-checks:
+    # Enabled by default
+    - appendAssign
+    - assignOp
+    - captLocal
+    - caseOrder
+    - defaultCaseOrder
+    - dupArg
+    - dupBranchBody
+    - dupCase
+    - dupSubExpr
+    - elseif
+    - flagDeref
+    - ifElseChain
+    - regexpMust
+    - singleCaseSwitch
+    - sloppyLen
+    - switchTrue
+    - typeSwitchVar
+    - underef
+    - unlambda
+    - unslice
+    # Disabled by default
+    - appendCombine
+    - argOrder
+    - badCall
+    - badCond
+    - boolExprSimplify
+    - builtinShadow
+    - codegenComment
+    - commentFormatting
+    - commentedOutCode
+    - commentedOutImport
+    - deprecatedComment
+    - docStub
+    - dupImport
+    - emptyFallthrough
+    - emptyStringTest
+    - equalFold
+    - evalOrder
+    - exitAfterDefer
+    - flagName
+    - hexLiteral
+    - hugeParam
+    - importShadow
+    - indexAlloc
+    - initClause
+    - methodExprCall
+    - nestingReduce
+    - newDeref
+    - nilValReturn
+    - octalLiteral
+    - offBy1
+    - paramTypeCombine
+    - ptrToRefParam
+    - rangeExprCopy
+    - rangeValCopy
+    - sloppyReassign
+    - stringXbytes
+    - typeAssertChain
+    - typeUnparen
+    - unlabelStmt
+    - unnamedResult
+    - unnecessaryBlock
+    - valSwap
+    - weakCond
+    - wrapperFunc
+    - yodaStyleExpr
 
     # Which checks should be disabled; can't be combined with 'enabled-checks'; default is empty
     # disabled-checks:
@@ -186,7 +252,7 @@ linters:
     - goimports
     - gocyclo
     - maligned
-    - dupl
+    # - dupl
     - misspell
     - lll
     - nakedret
