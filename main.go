@@ -3,6 +3,7 @@ package main
 import (
 	"encoding/base64"
 	"fmt"
+	"io"
 	"os"
 	"path/filepath"
 	"text/tabwriter"
@@ -19,6 +20,14 @@ var (
 )
 
 func main() {
+	var returnErr error
+	defer func() {
+		if returnErr != nil {
+			fmt.Fprint(os.Stderr, returnErr)
+			os.Exit(1)
+		}
+	}()
+
 	var (
 		decode        = flag.BoolP("decode", "d", false, "decode data")
 		ignoreGarbage = flag.BoolP("ignore-garbage", "i", false, "when decoding, ignore non-alphabet characters")
@@ -32,35 +41,34 @@ func main() {
 
 	if *help {
 		printHelp(filepath.Base(os.Args[0]))
-		os.Exit(0)
+		return
 	}
 
 	if *showVersion {
-		printVersion()
-		os.Exit(0)
+		printVersion(os.Stdout)
+		return
 	}
 
 	encoding := getEncoding(*noPadding, *url)
 
 	file, err := getFile(flag.Arg(0))
 	if err != nil {
-		fmt.Fprintln(os.Stderr, err.Error())
-		os.Exit(1)
+		returnErr = err
+		return
 	}
+	defer file.Close()
 
 	if !*decode { // encode
 		if err = xbase.Encode64(file, os.Stdout, encoding, *wrapAfter); err != nil {
-			fmt.Fprintf(os.Stderr, "encode pipeline error: %v\n", err)
-			file.Close()
-			os.Exit(1)
+			returnErr = fmt.Errorf("encode pipeline error: %v", err)
+			return
 		}
 	}
 
 	if *decode {
 		if err = xbase.Decode64(file, os.Stdout, encoding, *ignoreGarbage); err != nil {
-			fmt.Fprintf(os.Stderr, "encode pipeline error: %v\n", err)
-			file.Close()
-			os.Exit(1)
+			returnErr = fmt.Errorf("encode pipeline error: %v", err)
+			return
 		}
 	}
 }
@@ -81,9 +89,9 @@ from any other non-alphabet bytes in the encoded stream.
 `)
 }
 
-func printVersion() {
+func printVersion(dst io.Writer) {
 	const padding = 2
-	w := tabwriter.NewWriter(os.Stdout, 0, 0, padding, ' ', 0)
+	w := tabwriter.NewWriter(dst, 0, 0, padding, ' ', 0)
 	fmt.Fprintf(w, "Version:\t%s\n", version)
 	fmt.Fprintf(w, "Commit:\t%s\n", commit)
 	fmt.Fprintf(w, "Date:\t%s\n", date)
