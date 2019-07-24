@@ -3,6 +3,7 @@ package main
 import (
 	"encoding/base64"
 	"fmt"
+	"io"
 	"os"
 	"path/filepath"
 	"text/tabwriter"
@@ -88,9 +89,9 @@ from any other non-alphabet bytes in the encoded stream.
 `)
 }
 
-func printVersion() {
+func printVersion(dst io.Writer) {
 	const padding = 2
-	w := tabwriter.NewWriter(os.Stdout, 0, 0, padding, ' ', 0)
+	w := tabwriter.NewWriter(dst, 0, 0, padding, ' ', 0)
 	fmt.Fprintf(w, "Version:\t%s\n", version)
 	fmt.Fprintf(w, "Commit:\t%s\n", commit)
 	fmt.Fprintf(w, "Date:\t%s\n", date)

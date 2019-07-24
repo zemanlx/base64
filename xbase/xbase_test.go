@@ -311,7 +311,7 @@ func Test_Decode64(t *testing.T) {
 }
 
 func Benchmark_Decode64_noIgnoreGarbage(b *testing.B) {
-	ignoreGarbage := true
+	ignoreGarbage := false
 	testInput := "testdata/utf8.decode.url.wrap-0.padded.input"
 	input, err := os.Open(testInput)
 	if err != nil {
